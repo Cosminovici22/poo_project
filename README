@@ -1,0 +1,432 @@
+Iliescu Cosmin - 322CD
+
+Design patterns:
+- Singleton (in clasa environment.Library)
+- Visitor (in pachetul environment.party.wrapped)
+    - folosit in implementarea comenzii "wrapped"
+    - interfetele de baza: WrapVisitable si WrapVisitor
+    - Wrap implementeaza WrapVisitor
+    - cele 3 tipuri de uitilizatori (user, artist si host, carora li se poate
+    aplica comanda "wrapped") implementeaza WrapVisitable
+- Observer (in pachetul environment.party.observer)
+    - folosit in implementara sistemului de notificari
+    - interfetele de baza: SubjectParty si ObserverUser
+    - un User reprezinta observatorul, care este notificat prin metoda "update"
+    de catre un SubjectParty (Subject/Observable) oferit ca argument
+    - Host si Artist implementeaza SubjectParty, ei fiind cei care retin o lista
+    de abonati de tip ObserverUser (pe care ii adauga cu addRemoveSubscriber()),
+    carora le trimit notificarile atunci cand este nevoie
+- Strategy (in pachetul environment.page)
+    - folosit in implementarea sistemului de pagini
+    - intefata de baza: PageGeneratorStrategy
+    - in pachet se gasesc restul claselor ce implementeaza strategia mentionata
+    - clasa de context este environment.party.user.User ce executa o strategie
+    prin metoda "generateCurrentPage"
+
+La baza audio player-ului stau clasele:
+- source.Source:
+    - clasa abstracta ce reprezinta o sursa audio
+    - impune descendentilor ei metodele unload, load, next si prev, permitand
+    polimorfismul acestor actiuni in functie de tipul sursei
+    - descendentii directi sunt:
+        - source.track.Track:
+            - clasa abstracta ce reprezinta o sursa audio singulara
+            - faciliteaza accesul la durata sursei audio
+            - descendentii directi sunt:
+                - source.track.Song:
+                    - clasa ce implementeaza metodele impuse de Source, precum
+                    si metode ce se aplica strict ei: like si addRemoveInPlaylist
+                - source.track.Episode:
+                    - clasa ce implementeaza metodele impuse de Source
+        - source.compilation.Compilation:
+            - clasa abstracta ce reprezinta o compilatie de surse audio
+            - faciliteaza accesul la Track-urile acesteia
+            - descendentii directi sunt:
+                - source.compilation.Playlist:
+                    - clasa ce implementeaza metodele impuse de Source, precum
+                    si metode ce se aplica strict ei: switchVisibility,
+                    contains, add, remove, shuffle, follow si getLikeCount
+                - source.compilation.Podcast:
+                    - clasa ce implementeaza metodele impuse de Source, precum
+                    si metode ce se aplica strict ei: forward si backward
+                - source.compilation.Album:
+                    - clasa ce extinde clasa Playlist mentionata anterior
+- environment.Library:
+    - singleton ce memoreaza listele tuturor melodiilor, podcast-urilor,
+    playlist-urilor, albumelor, utilizatorilor, artistilor si host-ilor
+    - continutul acesteia este copiat din clasa LibraryInput (in cazul
+    melodiilor, podcast-urilor si utilizatorilor) sau este adaugat pe parcurs
+- environment.party.Party:
+    - clasa abstracta ce reprezinta un utilizator al aplicatiei
+    - impune descendentilor ei metodele add, delete si page ce permit adaugarea,
+    eliminarea si respectiv generarea unei pagini
+    - descendentii directi sunt:
+        - environment.party.user.User:
+            - memoreaza datele unui utilizator normal
+            - memoreaza rezultatele cautarilor utilizatorului si selectia facuta
+            in urma acestor cautari
+            - retine o instanta a clasei environment.party.user.Player, ce
+            reprezinta player-ul propriu-zis la care are acces utilizatorul
+            - retine melodiile preferate si playlist-urile urmarite de
+            utilizator, precum si o lista a playlist-urilor create de
+            utilizatorul respectiv
+            - memoreaza statusul curent al utilizatorului (online sau offline)
+            - implementeaza metode ce se aplica strict ei: selectSource,
+            selectParty, createPlaylist si switchStatus
+        - environment.party.artist.Artist:
+            - memoreaza datele unui artist: albumele, evenimentele si articolele
+            de vanzare ale acestuia, precum si metode pentru adaugarea si
+            eliminarea acestora din librarie
+        - environment.party.host.Host:
+            - memoreaza datele unui artist: podcast-urile si anunturile
+            acestuia, precum si metode pentru adaugarea si eliminarea acestora
+            din librarie
+- environment.party.user.Player:
+    - clasa ce reprezinta player-ul propriu-zis
+    - memoreaza compilatia curenta (daca este una incarcata) si track-ul curent,
+    timpul incarcarii track-ului, timpul scurs de la incarcarea track-ului,
+    statusul "repeat" si "paused"
+    - retine timpul scurs dintr-un episod al unui podcast intr-un hash map,
+    pentru a fi folosit ulterior de metodele "load" si "unload" implementate in
+    source.compilation.Podcast.
+    - retine melodiile playlist-ului incarcat intr-o lista de tip
+    source.track.Song in ordinea aleatoare redata de shuffle (daca aceasta
+    functionalitate este activata), pentru a fi folosite ulterior de metodele
+    next si prev implementate de source.compilation.Playlist
+    - implementeaza metode ce se aplica strict ei: cycleRepeats, playPause si
+    update
+- environment.party.user.Notification:
+    - clasa ce reprezinta o notificare trimisa unui utilizator
+- environment.party.artist.Event:
+    - clasa ce reprezinta un eveniment ce poate fi creat sau eliminat de un
+    artist
+- environment.party.artist.Merch:
+    - clasa ce reprezinta un articol de vanzare ce poate fi creat sau eliminat
+    de un artist
+- environment.party.host.Announcement:
+    - clasa ce reprezinta un anunt ce poate fi creat sau eliminat de un host
+
+Input-urile sunt citite in descendentii clasei abstracte command.Command, ce
+servesc, in mare parte, drept un wrapper pentru metodele si campurile claselor
+de baza mentionate anterior. Pentru aceasta, s-au folosit adnotatii din libraria
+Jackson ce deleaga instanta unui mostenitor al clasei Command pe baza valorii
+campului "command". Aceasta clasa parinte impune metoda "execute", ale carei
+implementari intorc rezultatele actiunilor comenzii sub forma unei instante a
+clasei commands.output.Output. La inceputul executiei programului, comenzile
+sunt citite cu ajutorul metodei "readValue" din clasa ObjectMapper, urmand ca
+rezultatele rularii metodei "execute" sa fie adaugate in obiectul "outputs" de
+tip ArrayNode.
+
+Comenzi search bar:
+- Search:
+    - input-ul comenzii este citit in clasa commands.party.user.searchbar.Search
+    - in aceasta clasa se afla interfata Filters, impreuna cu clasele ce
+    implementeaza aceasta interfata: SongFilters, PlaylistFilters,
+    PodcastFilters, AlbumFilters, ArtistFilters si HostFilters
+    - interfata Filters impune metoda "match" ale carei implementari verifica
+    daca o sursa audio sau utilizator intruneste filtrele primite ca input
+    - in functie de tipul sursei sau utilizatorului primit ca input, se parcurg
+    sursele audio, respectiv utilizatorii din librarie si se adauga intr-un
+    vector (de dimensiune maxima 5) entitatile pentru care metoda "match"
+    intoarce "true"
+    - vectorul mentionat anterior este setat in campul "searchedSources" sau
+    "searchedParties" al utilizatorului ce a dat comanda
+    - intoarce programului principal o instanta a clasei commands.output.Output
+    cu un mesaj corespunzator pentru a fi adaugata in obiectul "outputs"
+- Select:
+    - input-ul comenzii este citit in clasa commands.party.user.searchbar.Select
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "selectSource" si "selectParty" din clasa environment.party.user.User si
+    intoarce o instanta a clasei commands.output.Output cu un mesaj
+    corespunzator
+
+Comenzi player:
+- toate aceste comenzi incep prin a actualiza starea player-ului la timestamp-ul
+curent, folosind metoda "update" din clasa environment.party.user.Player;
+functionalitatea ei este explicata mai jos
+- Load:
+    - input-ul comenzii este citit in clasa commands.party.user.player.Load
+    - implementarea metodei "execute" serveste drept un wrapper pentru metodele
+    "update" din clasa environment.party.user.Player si "unload" si "load"
+    impuse de clasa abstracta source.Source
+    - metodele sunt apelate pe rand, in ordinea mentionata anterior, pentru a
+    produce efectul comenzii
+    - metoda "update" actualizeaza statusul player-ului la timestamp-ul oferit
+    ca parametru cu ajutorul comenzii "next" impusa de clasa
+    abstracta source.Source
+    - metoda "unload" este folosita pentru a scoate sursa audio incarcata in
+    player la momentul rularii comenzii
+    - metoda "load" incarca sursa audio pentru care este apelata in player-ul
+    utilizatorului curent
+    - in final, se intoarce o instanta a clasei commands.output.Output cu un
+    mesaj corespunzator
+- PlayPause:
+    - input-ul comenzii este citit in clasa commands.party.user.player.PlayPause
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "playPause" din clasa environment.party.user.Player si intoarce o instanta a
+    clasei commands.output.Output cu un mesaj corespunzator
+- Repeat:
+    - input-ul comenzii este citit in clasa commands.party.user.player.Repeat
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "cycleRepeat" din clasa environment.party.user.Player si intoarce o instanta
+    a clasei commands.output.Output cu un mesaj corespunzator
+- Shuffle:
+    - input-ul comenzii este citit in clasa commands.party.user.player.Shuffle
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "shuffle" din clasa source.compilation.Playlist si intoarce o instanta a
+    clasei commands.output.Output cu un mesaj corespunzator
+- Forward/Backward:
+    - input-ul comenzilor este citit in clasele
+    commands.party.user.player.Forward, respectiv
+    commands.party.user.player.Backward
+    - implementarile metodei "execute" servesc drept un wrapper pentru metodele
+    "forward", respectiv "backward" din clasa source.compilation.Podcast si
+    intorc o instanta a clasei commands.output.Output cu un mesaj corespunzator
+- Like:
+    - input-ul comenzii este citit in clasa commands.party.user.player.Like
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "like" din clasa source.track.Song si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- Next/Prev:
+    - input-ul comenzilor este citit in clasele commands.party.user.player.Next,
+    respectiv commands.party.user.player.Prev
+    - implementarile metodei "execute" servesc drept un wrapper pentru metodele
+    "next", respectiv "prev" impuse de clasa source.Source si intorc o instanta
+    a clasei commands.output.Output cu un mesaj corespunzator
+- AddRemoveInPlaylist:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.player.AddRemoveInPlaylist
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addRemoveInPlaylist" din clasa source.track.Song si intoarce o instanta a
+    clasei commands.output.Output cu un mesaj corespunzator
+- Status:
+    - input-ul comenzii este citit in clasa commands.party.user.player.Status
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine statusul player-ului user-ului ce a dat
+    comanda
+
+Comenzi playlist:
+- CreatePlaylist
+    - input-ul comenzii este citit in clasa
+    commands.party.user.playlist.CreatePlaylist
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "createPlaylist" din clasa User si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- SwitchVisibility
+    - input-ul comenzii este citit in clasa
+    commands.party.user.playlist.SwitchVisibility
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "switchVisibility" din clasa source.compilation.Playlist si intoarce o
+    instanta a clasei commands.output.Output cu un mesaj corespunzator
+- FollowPlaylist
+    - input-ul comenzii este citit in clasa commands.party.user.playlist.Follow
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "follow" din clasa source.compilation.Playlist si intoarce o instanta a
+    clasei commands.output.Output cu un mesaj corespunzator
+- ShowPlaylists
+    - input-ul comenzii este citit in clasa
+    commands.party.user.playlist.ShowPlaylists
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a datelor fiecarui playlist din
+    librarie
+
+Comenzi utilizatori normali:
+- ShowPreferredSongs
+    - input-ul comenzii este citit in clasa
+    commands.party.user.ShowPreferredSongs
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a melodiilor la care utilizatorul
+    curent a dat like
+- SwitchConnectionStatus
+    - input-ul comenzii este citit in clasa
+    commands.party.user.SwitchConnectionStatus
+    - implementarea metodei "execute" serveste drept un wrapper al metodelor
+    "update" si "switchStatus" din clasa User si intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a melodiilor la care utilizatorul
+    curent a dat like
+- BuyMerch:
+    - input-ul comenzii este citit in clasa commands.party.user.merch.BuyMerch
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "buy" din clasa Merch si intoarce o instanta a clasei commands.output.Output
+    cu un mesaj corespunzator
+- SeeMerch:
+    - input-ul comenzii este citit in clasa commands.party.user.merch.SeeMerch
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a numelor tutoror obiectelor de
+    tip Merch ce se afla in lista "ownedMerch" a utilizatorului
+- BuyPremium:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.premium.BuyPremium
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "setPremium" din classa User si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- CancelPremium:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.premium.CancelPremium
+    - implementarea metodei "execute" serveste drept un wrapper al metodelor
+    "setPremium" si "getGeneratedRevenueFor" din classa User si intoarce o
+    instanta a clasei commands.output.Output cu un mesaj corespunzator
+- Subscribe:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.notifications.Subscribe
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addRemoveSubscriber" din interfata SubjectParty si intoarce o instanta a
+    clasei commands.output.Output cu un mesaj corespunzator
+- GetNotifications:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.notifications.GetNotifications
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a tuturor notificarilor
+    utilizatorului
+- UpdateRecommendations:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.page.UpdateRecommendations
+    - implementarea metodei "execute" serveste drept un wrapper pentru metodele
+    "generateRandomSong", "generateRandomPlaylist" si "generateFansPlaylist"
+    si intoarce o instanta a clasei commands.output.Output cu un mesaj
+    corespunzator
+- LoadRecommendations:
+    - input-ul comenzii este citit in clasa
+    commands.party.user.page.LoadRecommendations
+    - implementarea metodei "execute" serveste drept un wrapper pentru metodele
+    "update", "unload" si "load" din clasa Player si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- ChangePage
+    - input-ul comenzii este citit in clasa commands.party.user.page.ChangePage
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "changePage" din clasa User si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- PrintCurrentPage
+    - input-ul comenzii este citit in clasa
+    commands.party.user.page.PrintCurrentPage
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine un String reprezentand pagina pe care se
+    afla utilizatorul
+- NextPage
+    - input-ul comenzii este citit in clasa commands.party.user.page.NextPage
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "nextPage" din clasa User si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- PreviousPage
+    - input-ul comenzii este citit in clasa commands.party.user.page.PreviousPage
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "prevPage" din clasa User si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+
+Comenzi artist:
+- AddAlbum
+    - input-ul comenzii este citit in clasa commands.party.artist.AddAlbum
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addAlbum" din clasa Artist si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- RemoveAlbum
+    - input-ul comenzii este citit in clasa commands.party.artist.RemoveAlbum
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "removeAlbum" din clasa Artist si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- AddEvent
+    - input-ul comenzii este citit in clasa commands.party.artist.AddEvent
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addEvent" din clasa Artist si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- RemoveEvent
+    - input-ul comenzii este citit in clasa commands.party.artist.RemoveEvent
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "removeEvent" din clasa Artist si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- AddMerch
+    - input-ul comenzii este citit in clasa commands.party.artist.AddMerch
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addMerch" din clasa Artist si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+
+Comenzi host:
+- AddPodcast
+    - input-ul comenzii este citit in clasa commands.party.host.AddPodcast
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addPodcast" din clasa Host si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- RemovePodcast
+    - input-ul comenzii este citit in clasa commands.party.host.RemoveAlbum
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "removePodcast" din clasa Host si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- AddAnnouncement
+    - input-ul comenzii este citit in clasa commands.party.host.AddAnnouncement
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "addAnnouncement" din clasa Host si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- RemoveAnnouncement
+    - input-ul comenzii este citit in clasa
+    commands.party.host.RemoveAnnouncement
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "removeAnnouncement" din clasa Host si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+
+Comenzi admin:
+- AddUser
+    - input-ul comenzii este citit in clasa commands.admin.AddUser
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "add" din clasa Party si intoarce o instanta a clasei commands.output.Output
+    cu un mesaj corespunzator
+- DeleteUser
+    - input-ul comenzii este citit in clasa commands.admin.DeleteUser
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "delete" din clasa Party si intoarce o instanta a clasei
+    commands.output.Output cu un mesaj corespunzator
+- ShowAlbums
+    - input-ul comenzii este citit in clasa commands.admin.ShowAlbums
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a datelor fiecarui album din
+    librarie
+- ShowPodcasts
+    - input-ul comenzii este citit in clasa commands.admin.ShowPodcasts
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a datelor fiecarui podcast din
+    librarie
+- AdBreak
+    - input-ul comenzii este citit in clasa commands.admin.AdBreak
+    - implementarea metodei "execute" serveste drept un wrapper pentru metoda
+    "setAd" din clasa Player si intoarce o insstanta a clasei Output cu un
+    mesaj corespunzator
+- EndProgram
+    - implementarea metodei "execute" intoarce o instanta a clasei Output
+    ce contine un Map al tuturor artistiolor de pe platforma ce au avut ascultari
+    sau au generat un venit, impreuna cu statisticile lor cerute
+
+Statistici:
+- GetTop5Songs
+    - input-ul comenzii este citit in clasa commands.statistics.GetTop5Songs
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a primelor 5 melodii din librarie
+    cu cele mai multe like-uri
+- GetTop5Playlists
+    - input-ul comenzii este citit in clasa commands.statistics.GetTop5Playlists
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a primelor 5 playlist-uri din
+    librarie cu cei mai multi urmaritori
+- GetTop5Albums
+    - input-ul comenzii este citit in clasa commands.statistics.GetTop5Albums
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a primelor 5 albume din librarie
+    cu cele mai multe like-uri
+- GetTop5Artists
+    - input-ul comenzii este citit in clasa commands.statistics.GetTop5Artists
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a primilor 5 artisti din librarie
+    cu cele mai multe like-uri
+- GetAllUsers
+    - input-ul comenzii este citit in clasa commands.statistics.GetAllUsers
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a tutoror utilizatorilor din
+    librarie
+- GetOnlineUsers
+    - input-ul comenzii este citit in clasa commands.statistics.GetOnlineUsers
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine o lista a tutoror utilizatorilor din
+    librarie ce au campul "offline" setat la "false"
+- Wrapped
+    - input-ul comenzii este citit in clasa commands.statistics.Wraped
+    - implementarea metodei "execute" intoarce o instanta a clasei
+    commands.output.Output, ce contine un Map al statisticilor respective
+    utilizatorului asupra caruia se aplica comanda
